@@ -30,7 +30,7 @@ function LoginForm() {
             const data = await response.json();
     
         
-            if (response.status === 200) {  
+            if (response.ok) {  
                 setCurrentUser(data.user);
                 localStorage.setItem('token', data.token);
                 console.log(data.token)
