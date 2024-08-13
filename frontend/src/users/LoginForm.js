@@ -32,6 +32,7 @@ function LoginForm() {
         
             if (response.ok) {  
                 setCurrentUser(data.user);
+                console.log("token2", data.token)
                 localStorage.setItem('token', data.token);
                 console.log(data.token)
                 history.push(`/`);

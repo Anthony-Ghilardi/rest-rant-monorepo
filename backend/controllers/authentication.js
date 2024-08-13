@@ -16,18 +16,23 @@ router.post('/', async (req, res) => {
             message: `Could not find a user with the provided username and password` 
         })
     } else {
-        const result = await jwt.encode(process.env.JWT_SECRET, { id: user.userid })
+        console.log("user",user)
+        const result = await jwt.encode(process.env.JWT_SECRET, { id: user.dataValues.userId })
+        console.log("results", result)
         res.json({ user: user, token: result.value })
     }
 })
 
 router.get('/profile', async (req, res) => {
     try {
+        console.log("headers",req.headers)
         const [authenticationMethod, token] = req.headers.authorization.split(' ')
-
-        if (authenticationMethod == 'Bearer') {
+        console.log("auth method", authenticationMethod)
+        console.log("token", token)
+        if (token) {
             const result = await jwt.decode(process.env.JWT_SECRET, token)
             const { id } = result.value
+            console.log("id",id)
             let user = await User.findOne({
                 where: {
                     userId: id
