@@ -1,140 +1,115 @@
-const router = require('express').Router()
-const db = require("../models")
+const router = require('express').Router();
+const db = require("../models");
+const jwt = require('jsonwebtoken');
 
-const { Place, Comment, User } = db
+const { Place, Comment, User } = db;
 
 router.post('/', async (req, res) => {
     if (!req.body.pic) {
-        req.body.pic = 'http://placekitten.com/400/400'
+        req.body.pic = 'http://placekitten.com/400/400';
     }
     if (!req.body.city) {
-        req.body.city = 'Anytown'
+        req.body.city = 'Anytown';
     }
     if (!req.body.state) {
-        req.body.state = 'USA'
+        req.body.state = 'USA';
     }
-    const place = await Place.create(req.body)
-    res.json(place)
-})
-
+    const place = await Place.create(req.body);
+    res.json(place);
+});
 
 router.get('/', async (req, res) => {
-    const places = await Place.findAll()
-    res.json(places)
-})
-
+    const places = await Place.findAll();
+    res.json(places);
+});
 
 router.get('/:placeId', async (req, res) => {
-    let placeId = Number(req.params.placeId)
+    let placeId = Number(req.params.placeId);
     if (isNaN(placeId)) {
-        res.status(404).json({ message: `Invalid id "${placeId}"` })
-    } else {
-        const place = await Place.findOne({
-            where: { placeId: placeId },
-            include: {
-                association: 'comments',
-                include: 'author'
-            }
-        })
-        if (!place) {
-            res.status(404).json({ message: `Could not find place with id "${placeId}"` })
-        } else {
-            res.json(place)
+        return res.status(404).json({ message: `Invalid id "${placeId}"` });
+    } 
+
+    const place = await Place.findOne({
+        where: { placeId: placeId },
+        include: {
+            association: 'comments',
+            include: 'author'
         }
+    });
+
+    if (!place) {
+        return res.status(404).json({ message: `Could not find place with id "${placeId}"` });
     }
-})
+
+    res.json(place);
+});
 
 router.put('/:placeId', async (req, res) => {
-    let placeId = Number(req.params.placeId)
+    let placeId = Number(req.params.placeId);
     if (isNaN(placeId)) {
-        res.status(404).json({ message: `Invalid id "${placeId}"` })
-    } else {
-        const place = await Place.findOne({
-            where: { placeId: placeId },
-        })
-        if (!place) {
-            res.status(404).json({ message: `Could not find place with id "${placeId}"` })
-        } else {
-            Object.assign(place, req.body)
-            await place.save()
-            res.json(place)
-        }
+        return res.status(404).json({ message: `Invalid id "${placeId}"` });
+    } 
+
+    const place = await Place.findOne({ where: { placeId: placeId } });
+
+    if (!place) {
+        return res.status(404).json({ message: `Could not find place with id "${placeId}"` });
     }
-})
+
+    Object.assign(place, req.body);
+    await place.save();
+    res.json(place);
+});
 
 router.delete('/:placeId', async (req, res) => {
-    let placeId = Number(req.params.placeId)
+    let placeId = Number(req.params.placeId);
     if (isNaN(placeId)) {
-        res.status(404).json({ message: `Invalid id "${placeId}"` })
-    } else {
-        const place = await Place.findOne({
-            where: {
-                placeId: placeId
-            }
-        })
-        if (!place) {
-            res.status(404).json({ message: `Could not find place with id "${placeId}"` })
-        } else {
-            await place.destroy()
-            res.json(place)
-        }
+        return res.status(404).json({ message: `Invalid id "${placeId}"` });
+    } 
+
+    const place = await Place.findOne({ where: { placeId: placeId } });
+
+    if (!place) {
+        return res.status(404).json({ message: `Could not find place with id "${placeId}"` });
     }
-})
+
+    await place.destroy();
+    res.json(place);
+});
 
 router.post('/:placeId/comments', async (req, res) => {
-    const placeId = Number(req.params.placeId)
+    const placeId = Number(req.params.placeId);
 
-    req.body.rant = req.body.rant ? true : false
+    req.body.rant = req.body.rant ? true : false;
 
     const place = await Place.findOne({
         where: { placeId: placeId }
-    })
+    });
 
     if (!place) {
-        res.status(404).json({ message: `Could not find place with id "${placeId}"` })
+        return res.status(404).json({ message: `Could not find place with id "${placeId}"` });
     }
 
-    let CurrentUser;
-    try {
-        const [method, token] = req.header.authorization.split(' ')
-        if (method == 'Bearer') {
-            const result = await jwt.decode(process.env.JWT_SECRET, token)
-            const { id } = result.value
-            CurrentUser = await User.findOne({
-                where: {
-                    userId: id
-                }
-            })
-        }
-    } catch {
-        CurrentUser = null
-    }
-
-    // const author = await User.findOne({
-    //     where: { userId: req.body.authorId }
-    // })
-
-    // if (!author) {
-    //     res.status(404).json({ message: `Could not find author with id "${req.body.authorId}"` })
-    // }
-
-    if (!CurrentUser) {
-        return res.status(404).json({
-            message: `You must be logged in to leave a rant or rave.`
-        })
+    if (!req.currentUser) {
+        return res.status(401).json({ message: `You must be logged in to leave a rant or rave.` })
     }
 
     const comment = await Comment.create({
         ...req.body,
-        authorId: CurrentUser.userId,
+        authorId: req.currentUser.userId,
         placeId: placeId
-    })
+    });
+
+    const author = await User.findOne({
+        where: { userId: req.currentUser.userId }
+    });
 
     res.send({
         ...comment.toJSON(),
         author
-    })
-})
+    });
+});
+
 
 router.delete('/:placeId/comments/:commentId', async (req, res) => {
     let placeId = Number(req.params.placeId)
@@ -149,7 +124,13 @@ router.delete('/:placeId/comments/:commentId', async (req, res) => {
             where: { commentId: commentId, placeId: placeId }
         })
         if (!comment) {
-            res.status(404).json({ message: `Could not find comment with id "${commentId}" for place with id "${placeId}"` })
+            res.status(404).json({ 
+                message: `Could not find comment` 
+            })
+        } else if (comment.authorId !== req.currentUser?.userId) {
+            res.status(403).json({ 
+                message: `You do not have permission to delete comment "${comment.commentId}"` 
+            })
         } else {
             await comment.destroy()
             res.json(comment)
@@ -157,5 +138,4 @@ router.delete('/:placeId/comments/:commentId', async (req, res) => {
     }
 })
 
-
-module.exports = router
+module.exports = router;

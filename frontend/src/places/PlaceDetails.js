@@ -36,16 +36,25 @@ function PlaceDetails() {
 	}
 
 	async function deleteComment(deletedComment) {
-		await fetch(`http://localhost:5000/places/${place.placeId}/comments/${deletedComment.commentId}`, {
-			method: 'DELETE'
-		})
-
-		setPlace({
-			...place,
-			comments: place.comments
-				.filter(comment => comment.commentId !== deletedComment.commentId)
-		})
+		const response = await fetch(`http://localhost:5000/places/${place.placeId}/comments/${deletedComment.commentId}`, {
+			method: 'DELETE',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${localStorage.getItem('token')}`
+			}
+		});
+	
+		if (response.ok) {
+			setPlace({
+				...place,
+				comments: place.comments.filter(comment => comment.commentId !== deletedComment.commentId)
+			});
+		} else {
+			const errorData = await response.json();
+			console.error("Error deleting comment:", errorData.message);
+		}
 	}
+	
 
 	async function createComment(commentAttributes) {
 		const response = await fetch(`http://localhost:5000/places/${place.placeId}/comments`, {
@@ -55,19 +64,19 @@ function PlaceDetails() {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify(commentAttributes)
-		})
-
-		const comment = await response.json()
-
+		});
+	
+		const comment = await response.json();
+	
 		setPlace({
 			...place,
 			comments: [
 				...place.comments,
 				comment
 			]
-		})
-
+		});
 	}
+	
 
 
 
